@@ -1,15 +1,8 @@
----
-title: "Substation Analysis"
-author: "Craig Nicholson"
-date: "February 24, 2016"
-output: html_document
----
+Substation Analysis by Craig Nicholson
+================================================================================
 
-# Goal
-The goal of this report is to quickly find Substations which are performing outside
-of the required limits and provide the ability for analysis.
-
-# February, 22nd 2016
+## Goal
+The goal of this report is to quickly find Substations which are performing outside of the required limits and provide the ability for analysis for February 22, 2016.
 
 ```{r Load Packages, include=FALSE}
 library(ggplot2)
@@ -27,7 +20,7 @@ trim <- function (x) gsub("^\\s+|\\s+$", "", x)
 
 ```{r Load_the_Data, include=FALSE}
 # Set Working Directory
-setwd("/Users/cn/rcode/DuckRiver/")
+setwd("/Users/cn/rcode/substation/")
 
 # readdate is in local time for both datasets
 v <- read.csv("voltage.csv")
@@ -320,7 +313,7 @@ lagging_p <- subset(totalSummary_pretty, totalSummary_pretty$mvars >  0)
 # RENAME... as neg as RIGHT SHIFTED, and _pos LEFT SHIFTED
 leading_outliers_p <- subset(leading_p, 
                     leading_p$pfmedian < pfLow |
-                    leading_p$pfmean > 1.02 |
+                    leading_p$pfmedian > 1.02 |
                     leading_p$vmedian < voltageLow |
                     leading_p$vmedian > voltageHigh) 
                    
@@ -352,18 +345,21 @@ tsh <-  subset(totalSummary_pretty, !is.na(totalSummary_pretty$pfmedian))
 ggplot(data=tsh[!is.na(tsh$pfmedian), ], 
        aes(x=pfmedian, y=vmedian)) +
     geom_point(size=3, color='green') + 
-    # geom_point(data=leading_outliers_p, aes(x=pfmedian, y=vmedian), color='red', size=4) +
-    # geom_text(data=leading_outliers_p, aes(label=substationName),hjust=-0.2, vjust=0.5,size=3) +
-    # geom_errorbar(data=leading_outliers_p, aes(ymin = vmin, ymax = vmax), width = 0.0025) + 
-    # geom_point(data=lagging_outliers_p, aes(x=pfmedian, y=vmedian), color='red', size=4) +
-    geom_text(aes(label=substationName),hjust=-0.2, vjust=0.5,size=3) +
-    geom_errorbar(aes(ymin = vmin, ymax = vmax), width = 0.0025,alpha=1/2) + 
+    geom_point(data=leading_outliers_p, aes(x=pfmedian, y=vmedian), color='red', size=4) +
+    geom_text(data=leading_outliers_p, aes(label=substationName),hjust=0, vjust=2,size=3) +
+    geom_errorbar(data=leading_outliers_p, aes(ymin = vmin, ymax = vmax), width = 0.0025) + 
+    geom_point(data=lagging_outliers_p, aes(x=pfmedian, y=vmedian), color='red', size=4) +
+    geom_text(data=lagging_outliers_p, aes(label=substationName),hjust=0, vjust=2,size=3) +
+    #geom_text(aes(label=substationName),hjust=-0.2, vjust=0.5,size=3) +
+    #geom_errorbar(aes(ymin = vmin, ymax = vmax), width = 0.0025,alpha=1/2) + 
     #pf is RIGHT shifted for Leading values so I would need to shift the max and min as well &*&^!
-    geom_errorbarh(aes(xmin = pfmin, xmax = pfmax,  height = .4),alpha=1/2) +
-    #geom_errorbarh(data=totalSummary_pretty, aes(xmax = pfmax, xmin = pfmin, height = .4)) +
+    #geom_errorbarh(aes(xmin = pfmin, xmax = pfmax,  height = .4),alpha=1/2) +
+    geom_errorbarh(data=leading_outliers_p, aes(xmax = pfmax, xmin = pfmin, height = .4)) +
+    geom_errorbarh(data=lagging_outliers_p, aes(xmax = pfmax, xmin = pfmin, height = .4)) +
     scale_y_continuous(limits = c(110, 130)) +
-    scale_x_continuous(limits = c(0.90, 1.10),
-                       breaks=c(.94,.96,.98,1,1.02,1.04,1.06),labels=c(".94", ".96", ".98","1", ".98", ".96",".94")) +
+    scale_x_continuous(limits = c(0.92, 1.10),
+                       breaks=c(0.92,.94,.96,.98,1,1.02,1.04,1.06,1.08),
+                       labels=c(".92",".94", ".96", ".98","1", ".98", ".96",".94",".92")) +
     geom_segment(aes(x = 0.98, y = voltageLow,  xend = 0.98, yend = voltageHigh), size=0.15,colour='black') + # left
     geom_segment(aes(x = 1.02, y = voltageLow,  xend = 1.02, yend = voltageHigh), size=0.15,colour='black') + # right
     geom_segment(aes(x = 0.98, y = voltageHigh, xend = 1.02, yend = voltageHigh), size=0.05,colour='black') + # top
@@ -670,7 +666,7 @@ Chapel Hill has a different power meter.  It does not register MVARS received in
 Voltage is being divided by 2 to adjust the view to 120 volts since the data being collected is 240 volts.
 
 ## Power Factor  
-Instructions from Duck River regarding PF calculation:  
+Instructions regarding PF calculation:  
 https://en.wikipedia.org/wiki/Power_factor  
 
 http://www.slideshare.net/RossWelshVA/power-factor-correction-the-easiest-biggest-green-initiative
