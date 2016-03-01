@@ -172,33 +172,6 @@ total <- left_join(v_col, pf_col, by= c("substationName", "h"))
 
 ```
 
-
-```{r Hillboro LeadLagMinMaxAnalysis}
-# how can be set the min to be the min for lagging and the max to be
-# the max of leading or max for lagging... depending on what's available....
-pf_hills <-  subset(pf_wide, pf_wide$substationName=='HILLSBORO')
-
-hillsboro__prefinal <- pf_hills %>%
-  group_by(desc)  %>%
-  summarise(mean = mean(pf),
-            median = median(as.numeric(pf)),
-            min = min(pf),
-            max = max(pf),
-            n = n())  %>% 
-  arrange(desc)
-
-hillsboro_final <- pf_hills %>%
-  group_by(substationName)  %>%
-  summarise(mean = mean(pfChart),
-            median = median(as.numeric(pfChart)),
-            min = min(pfChart),
-            max = max(pfChart),
-            n = n())  %>% 
-  arrange(substationName)
-
-```
-
-
 ```{r Total_the_Data, include=FALSE}
 
 # create a summary of the merged data for voltage and power factor
@@ -267,7 +240,7 @@ totalSummary$desc <- ifelse(totalSummary$mvar < 0, 'Lead' , 'Lag')
 
 ```
 
-```{r SecondAttemptForMinMaxPowerFactor}
+```{r SecondAttemptForMinMaxPowerFactor,include=FALSE}
 # Second Attempt calcualte the min max from shifted values
 totalSummary2 <- total %>%
   group_by(substationName)  %>%
@@ -337,26 +310,26 @@ We can have two types of outliers:
 We do have to match the power factor to the hour and need to review if repeating the power factor for each interval in the hour avoids introduces anomolies. 
 
 # Voltage Lagging and Leading Daily
-```{r Daily Substation Voltage & Power Factor v2 }
+```{r Daily Substation Voltage & Power Factor,echo=FALSE,fig.width=12, fig.height=12, echo=FALSE, warning=FALSE }
 
 tsh <-  subset(totalSummary_pretty, totalSummary_pretty$substationName=='HILLSBORO')
 tsh <-  subset(totalSummary_pretty, !is.na(totalSummary_pretty$pfmedian))
 
-ggplot(data=tsh[!is.na(tsh$pfmedian), ], 
+chart1 <- ggplot(data=tsh[!is.na(tsh$pfmedian), ], 
        aes(x=pfmedian, y=vmedian)) +
     geom_point(size=3, color='green') + 
     geom_point(data=leading_outliers_p, aes(x=pfmedian, y=vmedian), color='red', size=4) +
     geom_text(data=leading_outliers_p, aes(label=substationName),hjust=0, vjust=2,size=3) +
-    geom_errorbar(data=leading_outliers_p, aes(ymin = vmin, ymax = vmax), width = 0.0025) + 
+    geom_errorbar(data=leading_outliers_p, aes(ymin = vmin, ymax = vmax), width = 0.0025, alpha=1/2) + 
     geom_point(data=lagging_outliers_p, aes(x=pfmedian, y=vmedian), color='red', size=4) +
     geom_text(data=lagging_outliers_p, aes(label=substationName),hjust=0, vjust=2,size=3) +
-    geom_errorbar(data=lagging_outliers_p, aes(ymin = vmin, ymax = vmax), width = 0.0025) + 
+    geom_errorbar(data=lagging_outliers_p, aes(ymin = vmin, ymax = vmax), width = 0.0025, alpha=1/2) + 
     #geom_text(aes(label=substationName),hjust=-0.2, vjust=0.5,size=3) +
     #geom_errorbar(aes(ymin = vmin, ymax = vmax), width = 0.0025,alpha=1/2) + 
     #pf is RIGHT shifted for Leading values so I would need to shift the max and min as well &*&^!
     #geom_errorbarh(aes(xmin = pfmin, xmax = pfmax,  height = .4),alpha=1/2) +
-    geom_errorbarh(data=leading_outliers_p, aes(xmax = pfmax, xmin = pfmin, height = .4)) +
-    geom_errorbarh(data=lagging_outliers_p, aes(xmax = pfmax, xmin = pfmin, height = .4)) +
+    geom_errorbarh(data=leading_outliers_p, aes(xmax = pfmax, xmin = pfmin, height = .4), alpha=1/2) +
+    geom_errorbarh(data=lagging_outliers_p, aes(xmax = pfmax, xmin = pfmin, height = .4), alpha=1/2) +
     scale_y_continuous(limits = c(110, 130)) +
     scale_x_continuous(limits = c(0.92, 1.10),
                        breaks=c(0.92,.94,.96,.98,1,1.02,1.04,1.06,1.08),
@@ -365,12 +338,69 @@ ggplot(data=tsh[!is.na(tsh$pfmedian), ],
     geom_segment(aes(x = 1.02, y = voltageLow,  xend = 1.02, yend = voltageHigh), size=0.15,colour='black') + # right
     geom_segment(aes(x = 0.98, y = voltageHigh, xend = 1.02, yend = voltageHigh), size=0.05,colour='black') + # top
     geom_segment(aes(x = 0.98, y = voltageLow,  xend = 1.02, yend = voltageLow), size=0.15,colour='black') + # bottom
-    ggtitle("Daily Substation Voltage & Power Factor\n" ) +
     ylab("median voltage") +
     xlab("median power factor") +  
-    theme_bw(base_family= 'Helvetica') 
+    theme_bw(base_family= 'Helvetica')  +
+    ggtitle("Daily Substations Voltage and Power Factor Chart 2" )
+
+# remove all the outliers from the main dataset
+tsh <-  subset(totalSummary_pretty, !is.na(totalSummary_pretty$pfmedian))
+tsh <-  tsh[!(tsh$substationName %in% leading_outliers_p$substationName),]
+tsh <-  tsh[!(tsh$substationName %in% lagging_outliers_p$substationName),]
+
+chart2 <- ggplot(data=tsh[!is.na(tsh$pfmedian), ], 
+       aes(x=pfmedian, y=vmedian,color=substationName)) +
+    geom_point(size=3) + 
+    geom_text(aes(label=substationName),hjust=-0.2, vjust=0.5,size=3) +
+    geom_errorbar(aes(ymin = vmin, ymax = vmax), width = 0.0025,alpha=1/2) + 
+    #pf is RIGHT shifted for Leading values so I would need to shift the max and min as well &*&^!
+    geom_errorbarh(aes(xmin = pfmin, xmax = pfmax,  height = .4),alpha=1/2) +
+    scale_y_continuous(limits = c(110, 130)) +
+    scale_x_continuous(limits = c(0.94, 1.06),
+                       breaks=c(0.92,.94,.96,.98,1,1.02,1.04,1.06,1.08),
+                       labels=c(".92",".94", ".96", ".98","1", ".98", ".96",".94",".92")) +
+    geom_segment(aes(x = 0.98, y = voltageLow,  xend = 0.98, yend = voltageHigh), size=0.15,colour='black') + # left
+    geom_segment(aes(x = 1.02, y = voltageLow,  xend = 1.02, yend = voltageHigh), size=0.15,colour='black') + # right
+    geom_segment(aes(x = 0.98, y = voltageHigh, xend = 1.02, yend = voltageHigh), size=0.05,colour='black') + # top
+    geom_segment(aes(x = 0.98, y = voltageLow,  xend = 1.02, yend = voltageLow), size=0.15,colour='black') + # bottom
+    ylab("median voltage") +
+    xlab("median power factor") +  
+    theme_bw(base_family= 'Helvetica') +
+    #labs(linetype='custom title') +
+    #scale_fill_continuous(guide = guide_legend()) +
+    theme(legend.position="bottom")  +
+    ggtitle("Daily Substations Voltage and Power Factor Chart 2" )
+
+grid.arrange(chart1, arrangeGrob(chart2), ncol = 1)
+
 ```
 
+## Boxplot of Power Factor
+
+```{r BoxPlotOfPowerFactor, echo=FALSE,fig.width=12, fig.height=12, echo=FALSE, warning=FALSE }
+# reshape the y axis to fit the power factor use case / user expectations
+ggplot(data=pf_wide[!is.na(pf_wide$pfChart), ], 
+       aes(factor(substationName), pfChart)) +
+    geom_boxplot(outlier.colour = "red") + 
+    scale_y_continuous(limits = c(0.90, 1.10),
+                        breaks=c(0.92,.94,.96,.98,1,1.02,1.04,1.06,1.08),
+                        labels=c(".92",".94", ".96", ".98","1", ".98", ".96",".94",".92")) +
+    theme_bw(base_family= 'Helvetica') +
+    theme(legend.position="bottom") +
+    xlab("") +
+    ylab("power factor") + 
+    geom_hline(yintercept = 1, color='blue') +
+    ggtitle("Boxplot of Power Factor by Substation" )
+
+```
+
+This chart is used to show the shape of the distribution, its central value, and its variability. In a box and whisker plot: the ends of the box are the upper and lower quartiles, so the box spans the interquartile range. the median is marked by a vertical line inside the box
+
+The upper and lower "hinges" correspond to the first and third quartiles (the 25th and 75th percentiles). 
+
+The upper whisker extends from the hinge to the highest value that is within 1.5 * IQR of the hinge, where IQR is the inter-quartile range, or distance between the first and third quartiles. The lower whisker extends from the hinge to the lowest value within 1.5 * IQR of the hinge. Data beyond the end of the whiskers are outliers and plotted as points (as specified by Tukey).
+
+Outliers are in red.
 
 
 ```{r SummaryChart, echo=FALSE,fig.width=12, fig.height=6, echo=FALSE, warning=FALSE}
@@ -396,10 +426,10 @@ p1 <- ggplot(data=totalSummary[!is.na(totalSummary$pfmedian), ],
     scale_x_continuous(limits = c(0.94, 1.06),
                        breaks=c(.94,.96,.98,1,1.02,1.04,1.06),labels=c(".94", ".96", ".98","1", ".98", ".96",".94")) +
 
-    geom_segment(aes(x = 0.98, y = voltageLow,  xend = 0.98, yend = voltageHigh), size=0.15,colour='black') + # left
-    geom_segment(aes(x = 1.02, y = voltageLow,  xend = 1.02, yend = voltageHigh), size=0.15,colour='black') + # right
-    geom_segment(aes(x = 0.98, y = voltageHigh, xend = 1.02, yend = voltageHigh), size=0.05,colour='black') + # top
-    geom_segment(aes(x = 0.98, y = voltageLow,  xend = 1.02, yend = voltageLow), size=0.15,colour='black') + # bottom
+    geom_segment(aes(x = 0.98, y = voltageLow,  xend = 0.98, yend = voltageHigh), size=0.15,colour='black') + # left side
+    geom_segment(aes(x = 1.02, y = voltageLow,  xend = 1.02, yend = voltageHigh), size=0.15,colour='black') + # right side
+    geom_segment(aes(x = 0.98, y = voltageHigh, xend = 1.02, yend = voltageHigh), size=0.05,colour='black') + # top 
+    geom_segment(aes(x = 0.98, y = voltageLow,  xend = 1.02, yend = voltageLow), size=0.15,colour='black') +  # bottom
     ggtitle("Daily Substation Voltage & Power Factor" ) +
     ylab("median voltage") +
     xlab("median power factor") +  
@@ -426,7 +456,8 @@ p3<- ggplot(data=pf_wide[!is.na(pf_wide$pfChart), ]
   ggtitle("Power Factor Histogram (bin=0.002)")
 
 #grid.arrange(p1, p2,ncol=2)
-grid.arrange(p1, arrangeGrob(p2, p3), ncol = 2)
+#grid.arrange(p1, arrangeGrob(p2, p3), ncol = 2)
+grid.arrange(p2, arrangeGrob(p3), ncol = 2)
 
 # TODO:  Greg mentioned the original intent for this chart was to see the voltage and pf in read time
 #        and i need my notes to figure out what green, yellow, and red mean again... 
@@ -453,7 +484,7 @@ This should really be the ones which are not outliers. And tagged with lagging a
 
 ```{r KTabletotalSummary, echo=FALSE}
 
-kable(totalSummary, digits=2)
+kable(totalSummary_pretty, digits=2)
 
 ```
 
