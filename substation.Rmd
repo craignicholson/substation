@@ -32,16 +32,17 @@ pf_dedupe <- pf  %>% group_by(ReadValue, station, SCADA.Point, ReadDate, substat
 
 ```
 
-Variables for the limits for the charts.  
-voltageHigh = 128  
-voltageLow  = 114  
-  
-pfHigh = 0.99  
-pfLow  = 0.98  
+### Variables for the limits for the charts.  
 
-Upper limit of voltage.  Any voltage above 140v will be considerd invalid and removed from the analysis.  
-voltageHighLimit = 140
+> voltageHigh = 128  
+  voltageLow  = 114  
+  pfHigh      = 0.99  
+  pfLow       = 0.98  
 
+### Upper limit of voltage.  
+
+> voltageHighLimit = 140  
+  Any voltage above 140v will be considerd invalid and removed from the analysis.  
 
 ```{r Format_the_DataPowerFactor, include=FALSE}
 # Setup variables for the limits for the charts
@@ -302,14 +303,8 @@ lagging_outliers_p <- subset(lagging_p,
 
 ```
 
-Any substation with the votlage or power factor outside the boundry is an outlier.
-We can have two types of outliers:  
-* Voltage Outlier which will be above or below the high/low voltage  
-* Power factor which will left or right shift the substation on the chart.  
+## Voltage Lagging and Leading Daily
 
-We do have to match the power factor to the hour and need to review if repeating the power factor for each interval in the hour avoids introduces anomolies. 
-
-# Voltage Lagging and Leading Daily
 ```{r Daily Substation Voltage & Power Factor,echo=FALSE,fig.width=12, fig.height=12, echo=FALSE, warning=FALSE }
 
 tsh <-  subset(totalSummary_pretty, totalSummary_pretty$substationName=='HILLSBORO')
@@ -341,7 +336,7 @@ chart1 <- ggplot(data=tsh[!is.na(tsh$pfmedian), ],
     ylab("median voltage") +
     xlab("median power factor") +  
     theme_bw(base_family= 'Helvetica')  +
-    ggtitle("Daily Substations Voltage and Power Factor Chart 2" )
+    ggtitle("Substation Voltage & Power Factor" )
 
 # remove all the outliers from the main dataset
 tsh <-  subset(totalSummary_pretty, !is.na(totalSummary_pretty$pfmedian))
@@ -369,15 +364,21 @@ chart2 <- ggplot(data=tsh[!is.na(tsh$pfmedian), ],
     #labs(linetype='custom title') +
     #scale_fill_continuous(guide = guide_legend()) +
     theme(legend.position="bottom")  +
-    ggtitle("Daily Substations Voltage and Power Factor Chart 2" )
+    ggtitle("Substation Voltage & Power Factor" )
 
 grid.arrange(chart1, arrangeGrob(chart2), ncol = 1)
 
 ```
 
+Outliers Description:  
+* Voltage Outlier (median) which will be above or below the high/low voltage  
+* Power factor (median) which will left or right shift the substation on the chart.  
+
+We do have to match the power factor to the hour and need to review if repeating the power factor for each interval in the hour avoids introduces anomolies. 
+
 ## Boxplot of Power Factor
 
-```{r BoxPlotOfPowerFactor, echo=FALSE,fig.width=12, fig.height=12, echo=FALSE, warning=FALSE }
+```{r BoxPlotOfPowerFactor, echo=FALSE,fig.width=12, fig.height=10, echo=FALSE, warning=FALSE }
 # reshape the y axis to fit the power factor use case / user expectations
 ggplot(data=pf_wide[!is.na(pf_wide$pfChart), ], 
        aes(factor(substationName), pfChart)) +
@@ -390,9 +391,29 @@ ggplot(data=pf_wide[!is.na(pf_wide$pfChart), ],
     xlab("") +
     ylab("power factor") + 
     geom_hline(yintercept = 1, color='blue') +
+    theme(axis.text.x=element_text(angle = -90, hjust = 0)) +
     ggtitle("Boxplot of Power Factor by Substation" )
 
+# http://www.statmethods.net/management/aggregate.html
+pfboxplotdata <- pf_wide %>% 
+  group_by(substationName) %>% 
+  summarise(min=min(pf,na.rm = TRUE), 
+            Q1=quantile(pf, probs=0.25,na.rm = TRUE), 
+            median=median(as.numeric(pf),na.rm = TRUE),
+            mean=mean(pf,na.rm = TRUE),
+            Q3=quantile(pf, probs=0.75,na.rm = TRUE),
+            max=max(pf,na.rm = TRUE))  %>% 
+        arrange(substationName)
 ```
+
+### Boxplot Power Factor By Substation Data
+
+```{r BoxPlotPowerFactorData, echo=FALSE}
+
+kable(pfboxplotdata, digits=3)
+
+```
+
 
 This chart is used to show the shape of the distribution, its central value, and its variability. In a box and whisker plot: the ends of the box are the upper and lower quartiles, so the box spans the interquartile range. the median is marked by a vertical line inside the box
 
@@ -400,41 +421,11 @@ The upper and lower "hinges" correspond to the first and third quartiles (the 25
 
 The upper whisker extends from the hinge to the highest value that is within 1.5 * IQR of the hinge, where IQR is the inter-quartile range, or distance between the first and third quartiles. The lower whisker extends from the hinge to the lowest value within 1.5 * IQR of the hinge. Data beyond the end of the whiskers are outliers and plotted as points (as specified by Tukey).
 
-Outliers are in red.
+* Outliers are in red are values outside of the 3rd quartile.
 
+## Histograms (Voltage & Power Factor)
 
-```{r SummaryChart, echo=FALSE,fig.width=12, fig.height=6, echo=FALSE, warning=FALSE}
-
-# bivarient plot of voltage and power factor
-p1 <- ggplot(data=totalSummary[!is.na(totalSummary$pfmedian), ], 
-       aes(x=pfChart, y=vmedian)) +
-    geom_point(size=3, color='green') + 
-    
-    geom_point(data=leading_outliers, aes(x=pfChart, y=vmedian), color='red', size=4) +
-    geom_text(data=leading_outliers, aes(label=substationName),hjust=-0.2, vjust=0.5,size=3) +
-    geom_errorbar(data=leading_outliers, aes(ymin = vmin, ymax = vmax), width = 0.0025) + 
-    
-    geom_point(data=lagging_outliers, aes(x=pfChart, y=vmedian), color='red', size=4) +
-    geom_text(data=lagging_outliers, aes(label=substationName),hjust=-0.2, vjust=0.5,size=3) +
-    geom_errorbar(data=lagging_outliers, aes(ymin = vmin, ymax = vmax), width = 0.0025) + 
-    
-    #pf is RIGHT shifted for Leading values so I would need to shift the max and min as well &*&^!
-    #geom_errorbarh(data=totalSummary2[!is.na(totalSummary2$pfmedian), ], aes(xmin = pfmin, xmax = pfmax,  height = .4)) +
-    #geom_errorbarh(data=totalSummary_pretty, aes(xmax = pfmax, xmin = pfmin, height = .4)) +
-    
-    scale_y_continuous(limits = c(100, 130)) +
-    scale_x_continuous(limits = c(0.94, 1.06),
-                       breaks=c(.94,.96,.98,1,1.02,1.04,1.06),labels=c(".94", ".96", ".98","1", ".98", ".96",".94")) +
-
-    geom_segment(aes(x = 0.98, y = voltageLow,  xend = 0.98, yend = voltageHigh), size=0.15,colour='black') + # left side
-    geom_segment(aes(x = 1.02, y = voltageLow,  xend = 1.02, yend = voltageHigh), size=0.15,colour='black') + # right side
-    geom_segment(aes(x = 0.98, y = voltageHigh, xend = 1.02, yend = voltageHigh), size=0.05,colour='black') + # top 
-    geom_segment(aes(x = 0.98, y = voltageLow,  xend = 1.02, yend = voltageLow), size=0.15,colour='black') +  # bottom
-    ggtitle("Daily Substation Voltage & Power Factor" ) +
-    ylab("median voltage") +
-    xlab("median power factor") +  
-    theme_bw(base_family= 'Helvetica') 
-
+```{r HistogramVoltagePowerFactor, echo=FALSE,fig.width=12, fig.height=6, echo=FALSE, warning=FALSE}
 # histogram of voltage
 p2<- ggplot(data = total,aes(x = Voltage)) + 
   geom_histogram(binwidth=0.5, color = 'black', fill = '#333333') + 
@@ -455,15 +446,15 @@ p3<- ggplot(data=pf_wide[!is.na(pf_wide$pfChart), ]
   xlab("power factor") +
   ggtitle("Power Factor Histogram (bin=0.002)")
 
-#grid.arrange(p1, p2,ncol=2)
-#grid.arrange(p1, arrangeGrob(p2, p3), ncol = 2)
 grid.arrange(p2, arrangeGrob(p3), ncol = 2)
 
 # TODO:  Greg mentioned the original intent for this chart was to see the voltage and pf in read time
 #        and i need my notes to figure out what green, yellow, and red mean again... 
 ```
 
-## Outlier Lagging Substations 
+A histogram is a bar graph of raw data that creates a picture of the data distribution. The bars represent the frequency of occurrence by classes of data. A histogram shows basic information about the data set, such as central location , width of spread , and shape.
+
+### Lagging Substations 
 
 ```{r OutlierKTableNeg, echo=FALSE}
 
@@ -471,7 +462,7 @@ kable(lagging_outliers, digits=3)
 
 ```
 
-## Outlier Leading Substations 
+### Leading Substations 
 
 ```{r OutlierKTablePos, echo=FALSE}
 
@@ -479,8 +470,9 @@ kable(leading_outliers, digits=3)
 
 ```
 
-## Substations Summary
-This should really be the ones which are not outliers. And tagged with lagging and leading for the overall mega vars for the day in this summary table.  I also 
+### All Substations
+
+Need to pick a preference on what to display for the min and max and how to distinguish when the min is lagging and max is leading, or when the substation min and max spans the distance between the lagging and leading power factor.
 
 ```{r KTabletotalSummary, echo=FALSE}
 
@@ -488,19 +480,17 @@ kable(totalSummary_pretty, digits=2)
 
 ```
 
-This chart is the closest representation to the initial request.  The power factor varies widely over the narrow range making review and trends hard to see.
+This table has multiple columns used to help right shift the charts and also the fields ending in 'C' which is the corrected value which is the 'original' value of the power factor without the leading shift.
 
-## Notes
 Substations missing from the chart are missing data, either data for voltage or data needed to calculate power factor.  
 
 TODO: An additional historical report of the daily min-max review of power factor might be usefull when reporting leading and lagging at the daily level.  Or the number of times in the day when the substation switches from leading to lagging or lagging to leading.
 
-# Voltage by 15min Intervals
+## Voltage by 15min Intervals
 
 ```{r Voltage15MinuteIntervalsByHour, fig.width=12, fig.height=6, echo=FALSE, warning=FALSE}
 
 #TODO NEED x axis labels
-
 ggplot(data=total, aes(x=hm, y=Voltage)) +
   geom_point(aes(color=substationName),position=position_jitter(h=1),alpha=1/2, size=2) + 
   scale_y_continuous(limits = c(100, 130)) +
@@ -514,7 +504,7 @@ ggplot(data=total, aes(x=hm, y=Voltage)) +
 
 ```
 
-## Summary of Voltage for all data points.
+### Summary of Voltage for all data points.
 
 ```{r SummaryOfVoltageData, echo=FALSE, warning=FALSE}
 #remove_max <- subset(total, total$Voltage < max(total$Voltage))
@@ -529,10 +519,54 @@ one interval that is a max or min might be a red herring.  Another suggestion is
 we can build groups of ranges and the number of incidents in those ranges is the factor
 to sort and search.
 
-# Voltage & Power Factor Substation Outliers
+## Boxplot of Voltage
+
+```{r BoxPlotOfVoltage, echo=FALSE,fig.width=12, fig.height=10, echo=FALSE, warning=FALSE }
+# reshape the y axis to fit the power factor use case / user expectations
+ggplot(data=total[!is.na(total$Voltage), ], 
+       aes(factor(substationName), Voltage)) +
+    geom_boxplot(outlier.colour = "red") + 
+    theme_bw(base_family= 'Helvetica') +
+    theme(legend.position="bottom") +
+    xlab("") +
+    geom_hline(yintercept = voltageHigh, color='blue') +
+    geom_hline(yintercept = voltageLow, color='blue') +
+    theme(axis.text.x=element_text(angle = -90, hjust = 0)) +
+    ggtitle("Boxplot of Voltage by Substation" ) 
+
+# http://www.statmethods.net/management/aggregate.html
+vboxplotdata <- total %>% 
+  group_by(substationName) %>% 
+  summarise(min=min(Voltage,na.rm = TRUE), 
+            Q1=quantile(Voltage, probs=0.25,na.rm = TRUE), 
+            median=median(as.numeric(Voltage),na.rm = TRUE),
+            mean=mean(Voltage,na.rm = TRUE),
+            Q3=quantile(Voltage, probs=0.75,na.rm = TRUE),
+            max=max(Voltage,na.rm = TRUE))  %>% 
+        arrange(substationName)
+```
+
+### Boxplot Power Factor By Substation Data
+
+```{r BoxPlotVoltageData, echo=FALSE}
+
+kable(vboxplotdata, digits=3)
+
+```
+
+
+This chart is used to show the shape of the distribution, its central value, and its variability. In a box and whisker plot: the ends of the box are the upper and lower quartiles, so the box spans the interquartile range. the median is marked by a vertical line inside the box
+
+The upper and lower "hinges" correspond to the first and third quartiles (the 25th and 75th percentiles). 
+
+The upper whisker extends from the hinge to the highest value that is within 1.5 * IQR of the hinge, where IQR is the inter-quartile range, or distance between the first and third quartiles. The lower whisker extends from the hinge to the lowest value within 1.5 * IQR of the hinge. Data beyond the end of the whiskers are outliers and plotted as points (as specified by Tukey).
+
+* Outliers are in red.
+
+## Voltage & Power Factor Substation Outliers
 Goal here is to see the movement of the substation voltage and power factor on the corrected chart displayed first in this analysis to see how the data moves in the regions for each individual interval of data.
 
-# Substation Voltage & Power Factor Intervals
+## Substation Voltage & Power Factor Intervals
 
 ```{r SubstationVoltagePowerFactorIntervals, echo=FALSE,fig.width=12, fig.height=6, echo=FALSE, warning=FALSE}
 
@@ -558,7 +592,7 @@ This chart represents the voltage and power factor for all data points collected
 
 We can see we have more points with Lagging power factors outside the required range for efficient power factor values.
 
-# Histogram of Voltage Distribution (All Substations)
+## Histogram of Voltage Distribution (All Substations)
 
 ```{r HistogramOfVoltage, fig.width=12, fig.height=6, echo=FALSE, warning=FALSE}
 
@@ -581,7 +615,7 @@ grid.arrange(h1, arrangeGrob(h2, h3), ncol = 2)
 
 ```
 
-# Voltage Charts
+A histogram is a bar graph of raw data that creates a picture of the data distribution. The bars represent the frequency of occurrence by classes of data. A histogram shows basic information about the data set, such as central location , width of spread , and shape.
 
 ## Substation Voltage Histograms
 ```{r VoltageHistchart, fig.width=10, fig.height=12, echo=FALSE, warning=FALSE}
@@ -594,12 +628,13 @@ ggplot(data = v_dedupe,aes(x = Voltage)) +
 
 ```
 
-Histogram shows the distribution of the data.  A tight distribution is good a wide distribution has the voltage spread across a wide range of values. Another edit we can do here is make the x and y axis for all the charts to visualize how all substations compare to each other.
+A histogram is a bar graph of raw data that creates a picture of the data distribution. The bars represent the frequency of occurrence by classes of data. A histogram shows basic information about the data set, such as central location , width of spread , and shape.
 
 Would it be benefical to have hitogram by day for a single substation over a time period?  Maybe histogram per month...
 
 
-## Substation Voltage by Time
+## Substation Voltage by Time (intervals)
+
 ```{r VoltageScatterchart, fig.width=10, fig.height=14, echo=FALSE, warning=FALSE}
 
 ggplot(data=v_dedupe, aes(x=hm, y=Voltage)) +
@@ -612,19 +647,17 @@ ggplot(data=v_dedupe, aes(x=hm, y=Voltage)) +
 
 The scatter plot shows the data along the time axis for the intervals for the day. The interesting point in this chart, which is similar to the histogram is how the shading changes from dark to grey, which is the points stacking on top of each other.  
 
-It takes 5 points on top of each other to make a solid point on th is chart.  This demonstrates how the data is spread out over the ranges through the day by hour.
+It takes 5 points on top of each other to make a solid point on this chart.  This demonstrates how the data is spread out over the ranges through the day by hour.
 
-## Voltage Summary Data
+### Voltage Summary Data
 
 ```{r SummaryVoltageBySub, echo=FALSE}
 kable(voltageBySubstation, digits=2)
 ```
 
-# Power Factor
-Additional Charts for exploratory review.
+## Additional Charts for exploratory review.
 
-
-## Power Factor by Substation and hour 
+### Power Factor by Substation and hour 
 
 ```{r PowerFactorChart voltage, fig.width=10, fig.height=8,echo=FALSE, warning=FALSE}
 
@@ -638,7 +671,7 @@ ggplot(aes(x = h, y = pf, color=desc), data = pf_wide) +
 
 Leading is colored instead of right shifted in these charts.
 
-## Power Factor Summary By Substation
+### Power Factor Summary By Substation
 
 ```{r PowerFactorSummarySort voltage, echo=FALSE}
 
@@ -648,7 +681,7 @@ kable(sorted_pf, digits=2)
 
 ```
 
-## MegaWatt By Substation
+### MegaWatt By Substation
 
 ```{r MeagWattsScatterPlot, fig.width=10, fig.height=8, echo=FALSE, warning=FALSE}
 
@@ -660,7 +693,7 @@ ggplot(data=pf_wide[!is.na(pf_wide$mw), ], aes(x=h, y=mw)) +
 
 ```
 
-## MegaVARS By Substation
+### MegaVARS By Substation
 
 ```{r MegaVarsScatterPlot, fig.width=10, fig.height=8, echo=FALSE, warning=FALSE}
 
@@ -683,21 +716,21 @@ ggplot(data=mvars,aes(x=ReadDate, y=ReadValue, color=SCADA.Point)) +
 
 ```
 
-# References
+## References
 
-## Bad Values
+### Bad Values
 Any voltage over 180v is considered bad data, or a spike and the data will be removed.
 
-## Interval Ending
+### Interval Ending
 Votlage Data
 
-## Chapel Hill Power Factor 
+### Chapel Hill Power Factor 
 Chapel Hill has a different power meter.  It does not register MVARS received in a separate register.  It is (+) if delivered and (–) if received.  Therefore, pf will have to be calculated with just the one number for MVARS. 
 
-## Votlage Calculation
+### Votlage Calculation
 Voltage is being divided by 2 to adjust the view to 120 volts since the data being collected is 240 volts.
 
-## Power Factor  
+### Power Factor  
 Instructions regarding PF calculation:  
 https://en.wikipedia.org/wiki/Power_factor  
 
@@ -715,10 +748,9 @@ Power Factor = (P, Real Power) / (S, Apparent Power)
 Power Factor = kw / (kw^2 + kvar^2)  
 Power Factor = kw / (kw^2 + (Delieverd-Received)^2)  
 
-## Would it be nice to see the trend of kw or kvar increasing or decreasing to predict 
-## when power factor is on a downward trend.... 
+### Would it be nice to see the trend of kw or kvar increasing or decreasing to predict when power factor is on a downward trend.... 
 
-## Leading and Lagging Power Factor
+### Leading and Lagging Power Factor
 * Delivered vars - Received vars   > 0 Lagging  
 * Delivered vars - Received vars   < 0 Leading
 
