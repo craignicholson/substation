@@ -337,7 +337,7 @@ We can have two types of outliers:
 We do have to match the power factor to the hour and need to review if repeating the power factor for each interval in the hour avoids introduces anomolies. 
 
 # Voltage Lagging and Leading Daily
-```{r sample chart }
+```{r Daily Substation Voltage & Power Factor v2 }
 
 tsh <-  subset(totalSummary_pretty, totalSummary_pretty$substationName=='HILLSBORO')
 tsh <-  subset(totalSummary_pretty, !is.na(totalSummary_pretty$pfmedian))
@@ -350,6 +350,7 @@ ggplot(data=tsh[!is.na(tsh$pfmedian), ],
     geom_errorbar(data=leading_outliers_p, aes(ymin = vmin, ymax = vmax), width = 0.0025) + 
     geom_point(data=lagging_outliers_p, aes(x=pfmedian, y=vmedian), color='red', size=4) +
     geom_text(data=lagging_outliers_p, aes(label=substationName),hjust=0, vjust=2,size=3) +
+    geom_errorbar(data=lagging_outliers_p, aes(ymin = vmin, ymax = vmax), width = 0.0025) + 
     #geom_text(aes(label=substationName),hjust=-0.2, vjust=0.5,size=3) +
     #geom_errorbar(aes(ymin = vmin, ymax = vmax), width = 0.0025,alpha=1/2) + 
     #pf is RIGHT shifted for Leading values so I would need to shift the max and min as well &*&^!
