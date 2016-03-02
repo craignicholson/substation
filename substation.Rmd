@@ -394,12 +394,13 @@ ggplot(data=pf_wide[!is.na(pf_wide$pfChart), ],
     theme(axis.text.x=element_text(angle = -90, hjust = 0)) +
     ggtitle("Boxplot of Power Factor by Substation" )
 
+# calculate the boxplot's data for output
 # http://www.statmethods.net/management/aggregate.html
 pfboxplotdata <- pf_wide %>% 
   group_by(substationName) %>% 
   summarise(min=min(pf,na.rm = TRUE), 
             Q1=quantile(pf, probs=0.25,na.rm = TRUE), 
-            median=median(as.numeric(pf),na.rm = TRUE),
+            median=median(pf,na.rm = TRUE),
             mean=mean(pf,na.rm = TRUE),
             Q3=quantile(pf, probs=0.75,na.rm = TRUE),
             max=max(pf,na.rm = TRUE))  %>% 
@@ -511,12 +512,34 @@ ggplot(data=total, aes(x=hm, y=Voltage)) +
 summary(total$Voltage)
 ```
 
+```{r VoltageBuckets, fig.width=12, fig.height=6, echo=FALSE, warning=FALSE}
+total$voltage.bucket <- cut(total$Voltage, 
+                             breaks = c(0,105,110,115,120,125,130,135,140))
+
+ggplot(data = total, aes(x=hm, y=Voltage))+
+  geom_point(aes(color=voltage.bucket), size=2, position='jitter', alpha=.75)+
+  scale_y_continuous()+
+  scale_color_brewer(type="seq") +
+  ggtitle("Voltage Intervals Grouped") +
+  xlab("hm")+
+  ylab("voltage") +
+  #theme(axis.ticks = element_blank(), axis.text.x = element_blank())
+  theme(axis.text.x = element_blank())
+
+# ggplot(aes(x = hm, y = Voltage),
+#        data = subset(total, !is.na(voltage.bucket))) +
+#        geom_line(aes(color=voltage.bucket), stat='summary', fun.y=median)
+```
+
+### Summary of Voltage Buckets
+```{r SummaryOfVoltageBucketData, echo=FALSE, warning=FALSE}
+#remove_max <- subset(total, total$Voltage < max(total$Voltage))
+summary(total$voltage.bucket)
+```
+
 Summary of Voltage for all data points excluding the max value for Lynchburg.
 
-TODO:
-We could also add a table of the top 10 Max & Min Voltage, per substation.  However...
-one interval that is a max or min might be a red herring.  Another suggestion is that
-we can build groups of ranges and the number of incidents in those ranges is the factor
+TODO: Another suggestion is that we can build groups of ranges and the number of incidents in those ranges is the factor
 to sort and search.
 
 ## Boxplot of Voltage
@@ -539,7 +562,7 @@ vboxplotdata <- total %>%
   group_by(substationName) %>% 
   summarise(min=min(Voltage,na.rm = TRUE), 
             Q1=quantile(Voltage, probs=0.25,na.rm = TRUE), 
-            median=median(as.numeric(Voltage),na.rm = TRUE),
+            median=median(Voltage,na.rm = TRUE),
             mean=mean(Voltage,na.rm = TRUE),
             Q3=quantile(Voltage, probs=0.75,na.rm = TRUE),
             max=max(Voltage,na.rm = TRUE))  %>% 
