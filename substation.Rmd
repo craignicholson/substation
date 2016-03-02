@@ -1,8 +1,10 @@
-Substation Analysis by Craig Nicholson
-================================================================================
+Substation Analysis February 22, 2016
+===============================================================================
 
 ## Goal
-The goal of this report is to quickly find Substations which are performing outside of the required limits and provide the ability for analysis for February 22, 2016.
+The goal of this report is to quickly find Substations which are performing 
+outside of the required limits and provide the ability for analysis for 
+February 22, 2016.
 
 ```{r Load Packages, include=FALSE}
 library(ggplot2)
@@ -11,25 +13,9 @@ library(dplyr)
 library(tidyr)
 library(knitr)
 library(RColorBrewer)
-```
 
-```{r Functions, include=FALSE}
-# Trim leading and trailing whitespaces
-trim <- function (x) gsub("^\\s+|\\s+$", "", x)
-```
-
-```{r Load_the_Data, include=FALSE}
-# Set Working Directory
-setwd("/Users/cn/rcode/substation/")
-
-# readdate is in local time for both datasets
-v <- read.csv("voltage.csv")
-pf <- read.csv("pf.csv")
-
-# remove duplicates
-v_dedupe <- v  %>% group_by(readdate,Voltage, substationName) %>% filter(row_number() == 1)
-pf_dedupe <- pf  %>% group_by(ReadValue, station, SCADA.Point, ReadDate, substationName) %>% filter(row_number() == 1)
-
+#install.packages("lubridate")
+library(lubridate)
 ```
 
 ### Variables for the limits for the charts.  
@@ -43,8 +29,9 @@ pf_dedupe <- pf  %>% group_by(ReadValue, station, SCADA.Point, ReadDate, substat
 
 > voltageHighLimit = 140  
   Any voltage above 140v will be considerd invalid and removed from the analysis.  
+  
+```{r ConstantVariables, include=FALSE}
 
-```{r Format_the_DataPowerFactor, include=FALSE}
 # Setup variables for the limits for the charts
 voltageHigh = 128
 voltageLow  = 114
@@ -56,17 +43,63 @@ pfLow  = 0.98
 # will be considerd invalid and removed from the analysis
 voltageHighLimit = 140
 
-# TODO: Ranges - to be used for grouping pf and voltage.
-# (,114]
-# (115, 120]
-# (120, 125]
-# (125, 128]
-# (128, ])
+```
 
-# re-map (pivot) the data for the pf calculation
+```{r Functions, include=FALSE}
+# Trim leading and trailing whitespaces
+trim <- function (x) gsub("^\\s+|\\s+$", "", x)
+```
+
+```{r Load_the_Data, include=FALSE}
+# Set Working Directory
+setwd("/Users/cn/rcode/substation/")
+
+# Read date is in local time for both datasets
+v <- read.csv("voltage.csv")
+pf <- read.csv("pf.csv")
+
+# data dictionary for u
+# voltage.csv  (3 vars)
+# 1. ReadDate - Local Time as factor, 96 intervals for the day
+# which in utlitlity terms for electric meter is 15 minute readings
+# a reading every 15 minutes.  
+# 2. Voltage the voltage measured on the meter at the specific time
+# period.
+# 3. substation name
+
+# pf.csv (powerfactor)
+# 1. Read Date 
+# 2. ReadValue - hourly data - needs to be cleaned, since the data
+# is offset by 10minutes for each hour and we need match this
+# value to the hour for the 
+# 3. station -> needs to be mapped to substationName
+# SCADA.Point (mega watts, mega vars delivered, mega vars received)
+# 
+# 
+#
+#
+```
+
+```{r RemoveDuplicatesFromData, include=FALSE}
+
+# remove duplicates for voltage and power factor datasets
+v_dedupe <- v  %>% 
+  group_by(readdate,Voltage, substationName) %>% 
+  filter(row_number() == 1)
+
+pf_dedupe <- pf  %>% 
+  group_by(ReadValue, station, SCADA.Point, ReadDate, substationName) %>% 
+  filter(row_number() == 1)
+
+```
+
+
+```{r Format_the_DataPowerFactor, include=FALSE}
+# Ppivot the data for the pf calculation
+# SCADA.Point contains, megawatts, megavars delievered, and megaVars received
 pf_wide <- spread(pf_dedupe,SCADA.Point, ReadValue)
 
-# TODO: Go Back and Update all of these columns names
+# rename the columns
 pf_wide <- rename(pf_wide, mw=PMWD3D, mvar.delivered=PMQD3D, mvar.received=PMQD3R)
 
 # Date Formating
@@ -81,7 +114,12 @@ pf_wide <- rename(pf_wide, mw=PMWD3D, mvar.delivered=PMQD3D, mvar.received=PMQD3
 # the day (which is the next day at zero hundred hours (00:00))
 # One way to solve this is convert readdate to as.Date( ) and then subtract 15mins.
 # Subtracting 15mins from the date will only work for intervals less than one hour
-pf_wide$h <- format(as.POSIXct(pf_wide$ReadDate, format="%m/%d/%y %H:%M"), format="%H")
+#pf_wide$dtReadDate <- parse_date_time(x, "%m/%d/%y %H:%M",tz = "America/Chicago")
+pf_wide$dtReadDate <- parse_date_time(pf_wide$ReadDate, orders="mdy hm")
+pf_wide$dtReadDate  <- pf_wide$dtReadDate  - minutes(10)
+pf_wide$h <- hour(pf_wide$dtReadDate)
+
+#pf_wide$h <- format(as.POSIXct(pf_wide$ReadDate, format="%m/%d/%y %H:%M"), format="%H")
 
 # force hour numeric, we will do the same for v_dedupe
 # so we can join these columns on each other to join the 2 datasets
@@ -120,7 +158,11 @@ pf_wide$pfChart <- ifelse( pf_wide$mvar < 0, (1-pf_wide$pf)+1 ,pf_wide$pf)
 
 ```{r Format_the_Data_Voltage, include=FALSE}
 
-v_dedupe$h <- format(as.POSIXct(v_dedupe$readdate, format="%m/%d/%y %H:%M"), format="%H")
+# clean and roll back 15min to accomodate interval ending and hours
+v_dedupe$dtReadDate <- parse_date_time(v_dedupe$readdate, orders="mdy hm")
+v_dedupe$dtReadDate  <- v_dedupe$dtReadDate  - minutes(15)
+v_dedupe$h <- hour(v_dedupe$dtReadDate)
+# old school posixct for x axis lables
 v_dedupe$hm <- format(as.POSIXct(v_dedupe$readdate, format="%m/%d/%y %H:%M"), format="%H:%M")
 
 # force the value to numeric like we have for pf_wide$h
@@ -514,7 +556,7 @@ summary(total$Voltage)
 
 ```{r VoltageBuckets, fig.width=12, fig.height=6, echo=FALSE, warning=FALSE}
 total$voltage.bucket <- cut(total$Voltage, 
-                             breaks = c(0,105,110,115,120,125,130,135,140))
+                             breaks = c(0,110,115,120,125,130))
 
 ggplot(data = total, aes(x=hm, y=Voltage))+
   geom_point(aes(color=voltage.bucket), size=2, position='jitter', alpha=.75)+
@@ -724,18 +766,10 @@ mvars <- subset(pf_dedupe, pf_dedupe$SCADA.Point == 'PMQD3D' | pf_dedupe$SCADA.P
 
 ggplot(data=mvars,aes(x=ReadDate, y=ReadValue, color=SCADA.Point)) +
   geom_point() +
-  #geom_point(aes(x=h, y=mvar.delivered), color='#ff00ff') + 
-  #geom_point(aes(x=h, y=mvar.received), color='#3399ff') +  
-  #geom_point(aes(x=h, y=PMQD3D), color='green', label='Delivered') + 
-  #geom_point(aes(x=h, y=PMQD3R), color='red', label='Received') +
   facet_wrap(~substationName, scales='free', ncol=3) +
   ggtitle("Mega VARs Scatter Plot by Substation" ) +
   theme_bw(base_family= 'Helvetica')  +
   theme(axis.ticks = element_blank(), axis.text.x = element_blank())
-  # scale_fill_manual(values=c("#999999", "#E69F00"), 
-  #                      name="Experimental\nCondition",
-  #                      breaks=c("ctrl", "trt1"),
-  #                      labels=c("Control", "Treatment 1"))
 
 ```
 
