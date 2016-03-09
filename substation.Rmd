@@ -803,7 +803,7 @@ hour_total <- powerfactor %>%
 ggplot(data=hour_total, aes(x=h, y=mwtotal)) +
   geom_point() +
   ggtitle("Mega Watt by Hour - Total" ) +
-  ylab("MW")
+  ylab("MW") +
   theme_bw(base_family= 'Helvetica')
 
 ```
